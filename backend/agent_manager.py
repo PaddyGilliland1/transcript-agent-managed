@@ -42,6 +42,7 @@ class AgentManager:
         self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         self._agent_id: str | None = None
         self._environment_id: str | None = None
+        self._active_session_id: str | None = None
         self._lock = asyncio.Lock()
         self._load_cache()
 
@@ -124,6 +125,19 @@ class AgentManager:
     def agent_id(self) -> str | None:
         return self._agent_id
 
+    def kill_active_session(self) -> bool:
+        """Delete the active session to stop the container and billing."""
+        sid = self._active_session_id
+        if not sid:
+            return False
+        try:
+            self.client.beta.sessions.delete(session_id=sid)
+            logger.info("Killed session: %s", sid)
+        except Exception as exc:
+            logger.warning("Failed to kill session %s: %s", sid, exc)
+        self._active_session_id = None
+        return True
+
     # ------------------------------------------------------------------
     # Analysis (blocking)
     # ------------------------------------------------------------------
@@ -138,6 +152,7 @@ class AgentManager:
             environment_id=self._environment_id,
         )
         session_id = session.id
+        self._active_session_id = session_id
         logger.info("Session created: %s", session_id)
 
         # Send transcript and collect response

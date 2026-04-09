@@ -93,6 +93,12 @@
   .btn-secondary:hover { color: var(--text); border-color: var(--text-muted); }
   .btn-download { background: rgba(52,211,153,0.12); color: var(--green); border: 1px solid rgba(52,211,153,0.3); }
   .btn-download:hover { filter: brightness(1.15); }
+  .btn-kill {
+    background: #dc2626; color: #fff; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; animation: pulse-kill 1.5s ease-in-out infinite;
+  }
+  .btn-kill:hover { background: #ef4444; }
+  @keyframes pulse-kill { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.5); } 50% { box-shadow: 0 0 12px 4px rgba(220,38,38,0.3); } }
 
   .status { margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted); min-height: 1.4em; }
   .status.error { color: var(--red); }
@@ -203,6 +209,7 @@
     <button class="btn-secondary" onclick="loadSample()">Load Sample</button>
     <button class="btn-secondary" onclick="clearAll()">Clear</button>
     <button class="btn-download" id="downloadBtn" onclick="downloadJson()" style="display:none">Download JSON</button>
+    <button class="btn-kill" id="killBtn" onclick="killAll()" style="display:none">KILL</button>
   </div>
 
   <div class="status" id="status"></div>
@@ -245,6 +252,8 @@
  */
 
 let lastResult = null;
+let activeAbort = null;
+let activeTimer = null;
 
 function el(tag, attrs, children) {
   const node = document.createElement(tag);
@@ -295,26 +304,28 @@ async function processTranscript() {
   btn.disabled = true;
   document.getElementById('results').classList.remove('visible');
   document.getElementById('downloadBtn').style.display = 'none';
+  document.getElementById('killBtn').style.display = 'inline-block';
 
   const streamEl = document.getElementById('streamOutput');
   streamEl.textContent = '';
   streamEl.classList.add('visible');
   const startTime = Date.now();
   let timerMsg = 'Creating session (container spin-up may take 30-60s)...';
-  const timer = setInterval(() => {
+  activeTimer = setInterval(() => {
     const secs = ((Date.now() - startTime) / 1000).toFixed(0);
     setStatus(timerMsg + ' (' + secs + 's)', false, true);
   }, 1000);
   setStatus(timerMsg, false, true);
 
-  // Allow handleSSEEvent to update the timer message
   function updateTimerMsg(msg) { timerMsg = msg; }
 
+  activeAbort = new AbortController();
   try {
     const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transcript: text }),
+      signal: activeAbort.signal,
     });
 
     if (!res.ok) {
@@ -340,12 +351,18 @@ async function processTranscript() {
       }
     }
   } catch (e) {
-    clearInterval(timer);
-    setStatus('Error: ' + e.message, true);
+    if (e.name === 'AbortError') {
+      setStatus('Killed by user.');
+    } else {
+      setStatus('Error: ' + e.message, true);
+    }
     streamEl.classList.remove('visible');
   } finally {
-    clearInterval(timer);
+    clearInterval(activeTimer);
+    activeTimer = null;
+    activeAbort = null;
     btn.disabled = false;
+    document.getElementById('killBtn').style.display = 'none';
   }
 }
 
@@ -536,6 +553,13 @@ function setStatus(msg, isError, showSpinner) {
     el.appendChild(spinner);
   }
   el.appendChild(document.createTextNode(msg));
+}
+
+function killAll() {
+  // Abort the fetch — tears down the SSE connection
+  if (activeAbort) activeAbort.abort();
+  // Also tell the backend to delete the session so the container stops
+  fetch('/api/kill', { method: 'POST' }).catch(() => {});
 }
 
 function clearAll() {

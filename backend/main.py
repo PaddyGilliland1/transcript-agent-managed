@@ -166,6 +166,14 @@ async def analyze_stream(body: ProcessTextRequest):
     return EventSourceResponse(event_generator())
 
 
+@app.post("/api/kill")
+async def kill_session():
+    """Kill the active session — stops the container and billing."""
+    mgr = _get_manager()
+    killed = mgr.kill_active_session()
+    return {"killed": killed}
+
+
 # ---------------------------------------------------------------------------
 # Serve frontend as static files (must be last — catches all unmatched routes)
 # ---------------------------------------------------------------------------
