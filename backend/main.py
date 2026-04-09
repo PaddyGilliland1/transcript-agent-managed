@@ -1,5 +1,5 @@
 """
-WorkchAIn Transcript Agent — FastAPI application.
+Transcript Agent (Managed) — FastAPI application.
 Uses Claude Managed Agents (Beta) to analyse meeting transcripts.
 """
 
@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="WorkchAIn Transcript Agent",
+    title="Transcript Agent (Managed)",
     description="Meeting transcript analysis powered by Claude Managed Agents",
     version="1.0.0",
     lifespan=lifespan,

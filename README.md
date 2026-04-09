@@ -1,4 +1,4 @@
-# WorkchAIn Transcript Agent
+# Transcript Agent (Managed)
 
 **Meeting transcript analysis powered by [Claude Managed Agents](https://www.anthropic.com/news/managed-agents) (Beta, April 2026)**
 

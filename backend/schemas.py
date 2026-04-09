@@ -70,6 +70,14 @@ class TranscriptAnalysis(BaseModel):
 # Response metadata
 # ---------------------------------------------------------------------------
 
+class UsageInfo(BaseModel):
+    """Token usage and estimated cost for a single analysis run."""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    session_seconds: int = 0
+    estimated_cost_usd: float = 0.0
+
+
 class AnalysisMeta(BaseModel):
     agent_id: str = ""
     session_id: str = ""
@@ -78,6 +86,7 @@ class AnalysisMeta(BaseModel):
     )
     model: str = ""
     duration_seconds: Optional[float] = None
+    usage: UsageInfo = Field(default_factory=UsageInfo)
 
 
 class AnalysisResponse(BaseModel):

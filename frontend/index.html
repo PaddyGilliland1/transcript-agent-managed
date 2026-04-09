@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WorkchAIn Transcript Agent</title>
+<title>Transcript Agent (Managed)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -168,7 +168,7 @@
 <body>
 <div class="container">
   <header>
-    <h1>Workch<span>AI</span>n Transcript Agent <span class="badge">Managed Agents Beta</span></h1>
+    <h1>Transcript <span>Agent</span> <span class="badge">Managed Agents Beta</span></h1>
     <p>Meeting transcript analysis powered by Claude Managed Agents (April 2026)</p>
   </header>
 
@@ -212,10 +212,12 @@
   </div>
 
   <footer>
-    WorkchAIn Transcript Agent &mdash; built by Paddy Gilliland using Claude Managed Agents on launch day.
+    Transcript Agent &mdash; built by Paddy Gilliland using Claude Managed Agents on launch day.
     <br>Agent: <span id="agentId" style="font-family:var(--font-mono)">-</span> |
     Session: <span id="sessionId" style="font-family:var(--font-mono)">-</span> |
     Duration: <span id="duration" style="font-family:var(--font-mono)">-</span>
+    <br>Tokens: <span id="tokenInfo" style="font-family:var(--font-mono)">-</span> |
+    Cost: <span id="costInfo" style="font-family:var(--font-mono)">-</span>
   </footer>
 </div>
 
@@ -354,6 +356,13 @@ function renderResults(data) {
   document.getElementById('agentId').textContent = meta.agent_id || '-';
   document.getElementById('sessionId').textContent = meta.session_id || '-';
   document.getElementById('duration').textContent = meta.duration_seconds ? meta.duration_seconds.toFixed(1) + 's' : '-';
+
+  // Cost info
+  const usage = meta.usage || {};
+  document.getElementById('tokenInfo').textContent =
+    (usage.input_tokens || 0).toLocaleString() + ' in / ' + (usage.output_tokens || 0).toLocaleString() + ' out';
+  document.getElementById('costInfo').textContent =
+    usage.estimated_cost_usd ? '$' + usage.estimated_cost_usd.toFixed(4) : '-';
 
   // Meta row
   const metaRow = clearNode('metaRow');
