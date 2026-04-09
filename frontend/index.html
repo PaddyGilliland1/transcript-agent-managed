@@ -36,16 +36,26 @@
 
   .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
 
-  header { border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; margin-bottom: 2rem; }
+  header {
+    border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; margin-bottom: 2rem;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;
+  }
   header h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
   header h1 span { color: var(--accent); }
   header p { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem; }
 
-  .badge {
-    display: inline-block; font-family: var(--font-mono); font-size: 0.7rem;
-    padding: 0.15rem 0.5rem; border-radius: 3px;
-    background: var(--accent-glow); color: var(--accent);
-    border: 1px solid rgba(56, 189, 248, 0.3); margin-left: 0.5rem; vertical-align: middle;
+  .demo-badge {
+    flex-shrink: 0; text-align: right; padding: 0.6rem 0.9rem;
+    background: linear-gradient(135deg, rgba(217, 119, 87, 0.12), rgba(217, 119, 87, 0.04));
+    border: 1px solid rgba(217, 119, 87, 0.3); border-radius: 8px;
+  }
+  .demo-badge .demo-title {
+    font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+    color: #d97757; letter-spacing: 0.03em; line-height: 1.4;
+  }
+  .demo-badge .demo-sub {
+    font-family: var(--font-mono); font-size: 0.62rem;
+    color: var(--text-muted); margin-top: 0.15rem;
   }
 
   .input-section { margin-top: 1.5rem; }
@@ -168,8 +178,15 @@
 <body>
 <div class="container">
   <header>
-    <h1>Transcript <span>Agent</span> <span class="badge">Managed Agents Beta</span></h1>
-    <p>Meeting transcript analysis powered by Claude Managed Agents (April 2026)</p>
+    <div>
+      <h1>Transcript <span>Agent</span></h1>
+      <p>Meeting transcript analysis powered by Claude Managed Agents</p>
+    </div>
+    <div class="demo-badge">
+      <div class="demo-title">Anthropic Managed Agents</div>
+      <div class="demo-title">DEMO</div>
+      <div class="demo-sub">Public Beta &middot; April 2026</div>
+    </div>
   </header>
 
   <div class="input-section">
