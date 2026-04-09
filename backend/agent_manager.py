@@ -193,8 +193,15 @@ class AgentManager:
             with self.client.beta.sessions.events.stream(session_id=session_id) as stream:
                 for event in stream:
                     etype = getattr(event, "type", "")
-                    if etype == "agent.thinking":
+
+                    if etype == "session.status_running":
+                        yield {"type": "status", "data": "Container running..."}
+                    elif etype == "span.model_request_start":
+                        yield {"type": "status", "data": "Model processing transcript..."}
+                    elif etype == "agent.thinking":
                         yield {"type": "status", "data": "Agent thinking..."}
+                    elif etype == "span.model_request_end":
+                        yield {"type": "status", "data": "Formatting response..."}
                     elif etype == "agent.message":
                         if hasattr(event, "content"):
                             for block in event.content:

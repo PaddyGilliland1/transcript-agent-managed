@@ -282,7 +282,16 @@ async function processTranscript() {
   const streamEl = document.getElementById('streamOutput');
   streamEl.textContent = '';
   streamEl.classList.add('visible');
-  setStatus('Starting managed agent session...', false, true);
+  const startTime = Date.now();
+  let timerMsg = 'Creating session (container spin-up may take 30-60s)...';
+  const timer = setInterval(() => {
+    const secs = ((Date.now() - startTime) / 1000).toFixed(0);
+    setStatus(timerMsg + ' (' + secs + 's)', false, true);
+  }, 1000);
+  setStatus(timerMsg, false, true);
+
+  // Allow handleSSEEvent to update the timer message
+  function updateTimerMsg(msg) { timerMsg = msg; }
 
   try {
     const res = await fetch('/api/analyze', {
@@ -310,23 +319,26 @@ async function processTranscript() {
         if (!line.startsWith('data:')) continue;
         const raw = line.slice(5).trim();
         if (!raw) continue;
-        try { handleSSEEvent(JSON.parse(raw), streamEl); } catch (e) { /* skip malformed */ }
+        try { handleSSEEvent(JSON.parse(raw), streamEl, updateTimerMsg); } catch (e) { /* skip malformed */ }
       }
     }
   } catch (e) {
+    clearInterval(timer);
     setStatus('Error: ' + e.message, true);
     streamEl.classList.remove('visible');
   } finally {
+    clearInterval(timer);
     btn.disabled = false;
   }
 }
 
-function handleSSEEvent(event, streamEl) {
+function handleSSEEvent(event, streamEl, updateTimerMsg) {
   switch (event.type) {
     case 'status':
-      setStatus(event.data, false, true);
+      if (updateTimerMsg) updateTimerMsg(event.data);
       break;
     case 'text':
+      if (updateTimerMsg) updateTimerMsg('Receiving response...');
       streamEl.textContent += event.data;
       streamEl.scrollTop = streamEl.scrollHeight;
       break;
@@ -335,7 +347,11 @@ function handleSSEEvent(event, streamEl) {
       lastResult = event.data;
       renderResults(event.data);
       const dur = event.data.meta?.duration_seconds;
-      setStatus('Analysis complete' + (dur ? ' in ' + dur.toFixed(1) + 's' : '') + '.');
+      const cost = event.data.meta?.usage?.estimated_cost_usd;
+      let msg = 'Analysis complete';
+      if (dur) msg += ' in ' + dur.toFixed(1) + 's';
+      if (cost) msg += ' ($' + cost.toFixed(4) + ')';
+      setStatus(msg + '.');
       document.getElementById('downloadBtn').style.display = 'inline-block';
       break;
     case 'error':
