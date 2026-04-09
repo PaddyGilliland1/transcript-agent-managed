@@ -1,8 +1,44 @@
-# Transcript Agent (Managed)
+# Managed Agents Framework
 
-**Meeting transcript analysis powered by [Claude Managed Agents](https://www.anthropic.com/news/managed-agents) (Beta, April 2026)**
+**A reusable framework for building with [Claude Managed Agents](https://www.anthropic.com/news/managed-agents) (Public Beta, April 2026)**
 
-Upload a meeting transcript and receive structured JSON output containing actions, decisions, risks, speaker participation, and a concise summary. Built on launch day as an early-adopter demonstration of the Managed Agents API.
+## What This Is
+
+This is a **framework and reference implementation**, not a finished product. It provides the complete plumbing for Anthropic's Managed Agents API — agent lifecycle, environment management, session handling, SSE streaming, cost tracking, and a web UI — so you can swap in your own use case and go.
+
+The included transcript analyser is a simple demonstration. Managed agents are designed for **big, long-running tasks** where the agent needs tools and autonomy — not quick prompt-in/JSON-out jobs. The framework is the point, not the demo.
+
+## When to Use Managed Agents
+
+Managed agents spin up an isolated cloud container per session. That container has tools (bash, file system, web search, code editor). There's a ~30-60s cold start. This makes sense when:
+
+- **The task is large** — processing hours of meeting transcripts, not minutes
+- **The agent needs tools** — running code, reading/writing files, searching the web
+- **Autonomy matters** — fire-and-forget jobs that run for minutes or hours
+- **Isolation is required** — each session gets its own sandboxed workspace
+
+Examples of good fit:
+- "Here's a 200-page contract PDF — extract all obligations, deadlines, and liabilities"
+- "Clone this GitHub repo, run the tests, fix failures, push a PR"
+- "Research 50 companies from this list — scrape pricing pages, build a comparison"
+- "Process a 4-hour all-hands transcript — produce RACI matrix, action tracker, risk register"
+
+For simple single-turn tasks (analyse short text, answer a question), use the regular Messages API instead — it's 10x faster and cheaper.
+
+## What You Get
+
+Fork this repo and you have:
+
+- **Agent lifecycle management** — create once, cache to disk, validate on restart
+- **Environment management** — container configuration via the Environments API
+- **Session handling** — create per-request, stream events, clean up
+- **SSE streaming** — real-time status updates to the browser (async queue bridge for the sync SDK)
+- **Cost tracking** — token counts + session time + USD estimate per request
+- **Kill button** — abort request and delete session to stop billing immediately
+- **Pydantic v2 schemas** — structured, validated output
+- **Multi-strategy JSON parsing** — handles markdown fences, partial output, format variations
+- **File format support** — VTT, SRT, TXT transcript parsing (extend for your formats)
+- **Web UI** — dark-theme SPA with streaming, file upload, download JSON
 
 ## Architecture
 
@@ -15,8 +51,11 @@ Upload a meeting transcript and receive structured JSON output containing action
                                                                     │
                                                    Anthropic Python SDK (beta)
                                                     ├─ agents.create()
+                                                    ├─ environments.create()
                                                     ├─ sessions.create()
-                                                    └─ sessions.stream()
+                                                    ├─ sessions.events.send()
+                                                    ├─ sessions.events.stream()
+                                                    └─ sessions.delete()
                                                                     │
                                                            ┌────────▼─────────┐
                                                            │ Claude Managed    │
@@ -26,178 +65,87 @@ Upload a meeting transcript and receive structured JSON output containing action
 ```
 
 **Key concepts:**
-- **Agent** — persistent, versioned config (model + system prompt + tools). Created once, reused across sessions.
-- **Session** — a running agent instance with its own sandboxed container. One per transcript.
-- **Events** — SSE stream of user messages and agent responses.
-- Beta header `managed-agents-2026-04-01` is set automatically by the SDK.
-
-## Prerequisites
-
-- Python 3.10+
-- An [Anthropic API key](https://console.anthropic.com) with Managed Agents access (enabled by default in public beta)
+- **Agent** — persistent, versioned config (model + system prompt + tools). Created once, reused.
+- **Environment** — container configuration (packages, networking). Created once, reused.
+- **Session** — a running agent instance with its own sandboxed container. One per request.
+- **Events** — SSE stream of status updates, thinking, and agent responses.
 
 ## Quick Start
 
 ```bash
-# 1. Clone
-git clone https://github.com/pgilliland1/transcript-agent-managed.git
+git clone https://github.com/PaddyGilliland1/transcript-agent-managed.git
 cd transcript-agent-managed
 
-# 2. Create virtual environment
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-
-# 3. Install dependencies
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 4. Set your API key
 cp .env.example .env
-# Edit .env and replace the placeholder with your Anthropic API key
+# Edit .env — paste your Anthropic API key
 
-# 5. Run
-uvicorn backend.main:app --reload --port 8000
+uvicorn backend.main:app --reload --port 8888
 ```
 
-Open **http://localhost:8000** in your browser. The frontend is served automatically by FastAPI.
+Open **http://localhost:8888**. Load the sample transcript and click Process.
 
-## Using It
+## Adapting for Your Use Case
 
-1. **Paste** a meeting transcript into the text area, **or** upload a `.txt` / `.vtt` / `.srt` file.
-2. Click **Process Transcript**.
-3. Watch real-time streaming as the managed agent analyses the transcript.
-4. View structured results: actions, decisions, risks, speaker stats.
-5. Click **Download JSON** to save the output.
-
-A sample transcript (D365 go-live readiness review) is included — click **Load Sample** to try it.
+1. **Change the prompt** — edit `backend/prompts.py` with your task instructions and output schema
+2. **Change the schemas** — edit `backend/schemas.py` to match your output structure
+3. **Change the UI** — edit `frontend/index.html` to render your output format
+4. **Everything else stays the same** — agent lifecycle, streaming, cost tracking, kill button all work unchanged
 
 ## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/analyze` | SSE streaming analysis (recommended) |
+| `POST` | `/api/analyze` | SSE streaming analysis |
 | `POST` | `/api/process-text` | Non-streaming text analysis |
-| `POST` | `/api/process` | Upload a transcript file |
+| `POST` | `/api/process` | File upload analysis |
+| `POST` | `/api/kill` | Kill active session (stops billing) |
 | `GET` | `/api/health` | Health check + agent status |
-| `GET` | `/api/sample` | Returns the bundled sample transcript |
-
-### curl examples
-
-```bash
-# Health check
-curl http://localhost:8000/api/health
-
-# Process text (non-streaming)
-curl -X POST http://localhost:8000/api/process-text \
-  -H "Content-Type: application/json" \
-  -d '{"transcript": "... your transcript text (50+ chars) ..."}'
-
-# Upload file
-curl -X POST http://localhost:8000/api/process \
-  -F "file=@sample_data/meridian-golive-review.txt"
-```
-
-## Output Format
-
-```json
-{
-  "status": "ok",
-  "analysis": {
-    "meeting": {
-      "title": "Meridian Manufacturing - D365 Go-Live Readiness Review",
-      "date": "2026-04-07",
-      "attendees": ["Alex Carter", "Rachel Torres", "Marcus Webb", "Lisa Ng"],
-      "summary": "The team reviewed go-live readiness..."
-    },
-    "actions": [
-      {
-        "action": "Extract UOM mismatch report from staging database",
-        "owner": "Alex Carter",
-        "deadline": "2026-04-07",
-        "priority": "high",
-        "category": "data_request",
-        "confidence": 0.95,
-        "source_timestamp": "00:04:00"
-      }
-    ],
-    "decisions": [
-      {
-        "summary": "Thursday set as hard deadline for UOM corrections",
-        "context": "Delay past Thursday pushes into weekend with cost implications",
-        "decided_by": ["Marcus Webb"],
-        "confidence": 0.9
-      }
-    ],
-    "risks": [
-      {
-        "description": "60% training attendance may cause high post-go-live support volume",
-        "severity": "high",
-        "mitigation": "Mandatory catch-up session + video walkthroughs",
-        "owner": "Alex Carter"
-      }
-    ],
-    "speakers": [
-      { "name": "Alex Carter", "word_count": 320, "speaking_time_pct": 38.5, "turn_count": 8 }
-    ]
-  },
-  "meta": {
-    "agent_id": "agent_...",
-    "session_id": "session_...",
-    "processed_at": "2026-04-09T10:30:00+00:00",
-    "model": "claude-sonnet-4-6",
-    "duration_seconds": 12.4
-  }
-}
-```
+| `GET` | `/api/sample` | Sample input data |
 
 ## Project Structure
 
 ```
 transcript-agent-managed/
 ├── .env.example              # API key placeholder (copy to .env)
-├── .gitignore
-├── README.md
-├── requirements.txt
 ├── backend/
-│   ├── __init__.py
-│   ├── main.py               # FastAPI application + endpoints
+│   ├── main.py               # FastAPI app + endpoints
+│   ├── agent_manager.py      # Agent/environment/session lifecycle (the core)
 │   ├── config.py             # Settings from .env
-│   ├── schemas.py            # Pydantic v2 models
-│   ├── prompts.py            # System prompt for the agent
-│   ├── agent_manager.py      # Agent/session lifecycle
-│   └── transcript_parser.py  # VTT/SRT/TXT parsing
+│   ├── schemas.py            # Pydantic v2 output models
+│   ├── prompts.py            # System prompt (swap this for your use case)
+│   └── transcript_parser.py  # Input format parsing
 ├── frontend/
-│   └── index.html            # Single-page web UI
-├── sample_data/
-│   └── meridian-golive-review.txt
-└── outputs/                  # Generated analysis files (gitignored)
+│   └── index.html            # Web UI with SSE streaming
+├── sample_data/              # Sample input files
+└── outputs/                  # Saved results (gitignored)
 ```
 
 ## Configuration
 
-All configuration is via `.env` (or environment variables):
-
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | *(required)* | Your Anthropic API key |
-| `MODEL` | `claude-sonnet-4-6` | Claude model to use |
+| `MODEL` | `claude-sonnet-4-6` | Claude model |
 | `PORT` | `8000` | Server port |
 
-The agent ID is cached to `.agent_cache.json` (gitignored) so it survives server restarts.
+Agent and environment IDs are cached to `.agent_cache.json` (gitignored) so they survive restarts.
 
 ## Cost
 
-Managed Agents billing:
 - **Session runtime**: $0.08 per agent-hour (container time)
-- **Token costs**: Standard Claude pricing for input/output tokens
-- A typical transcript analysis takes 10-30 seconds, costing < $0.01 in runtime
+- **Token costs**: Standard Claude pricing
+- **Kill button**: Deletes the session immediately — stops billing
+- Cost per request is shown in the UI footer and API response
 
 ## Notes
 
 - **Managed Agents is in public beta** (launched 8 April 2026). The API may evolve.
-- The beta header `managed-agents-2026-04-01` is set automatically by the SDK.
-- Each transcript creates a new session with an isolated container.
-- Agent configs are persistent and versioned. The backend creates one on first request and reuses it.
-- Your API key stays on your machine — it is never committed or transmitted anywhere except to the Anthropic API.
+- Beta header `managed-agents-2026-04-01` is set automatically by the SDK (v0.92.0+).
+- Each request creates a new session (isolated container). Expect 30-60s cold start.
+- Your API key never leaves your machine.
 
 ## Licence
 
@@ -205,4 +153,4 @@ MIT
 
 ## Author
 
-**Paddy Gilliland** — Early adopter build using Claude Managed Agents on launch day.
+**Paddy Gilliland** — Built on launch day, April 2026.
