@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkchAIn Transcript Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface-2: #1a2332;
+    --border: #1e2d3d;
+    --text: #e2e8f0;
+    --text-muted: #8899aa;
+    --accent: #38bdf8;
+    --accent-glow: rgba(56, 189, 248, 0.15);
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --purple: #a78bfa;
+    --font-body: 'Outfit', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  header { border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; margin-bottom: 2rem; }
+  header h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
+  header h1 span { color: var(--accent); }
+  header p { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem; }
+
+  .badge {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.7rem;
+    padding: 0.15rem 0.5rem; border-radius: 3px;
+    background: var(--accent-glow); color: var(--accent);
+    border: 1px solid rgba(56, 189, 248, 0.3); margin-left: 0.5rem; vertical-align: middle;
+  }
+
+  .input-section { margin-top: 1.5rem; }
+  .input-section label { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; display: block; }
+
+  textarea {
+    width: 100%; min-height: 200px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    font-family: var(--font-mono); font-size: 0.82rem; padding: 1rem;
+    resize: vertical; outline: none; transition: border-color 0.2s;
+  }
+  textarea:focus { border-color: var(--accent); }
+
+  .file-upload {
+    margin-top: 0.75rem; display: flex; align-items: center; gap: 0.75rem;
+    font-size: 0.82rem; color: var(--text-muted);
+  }
+  .file-upload input[type="file"] { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); }
+  .file-upload input[type="file"]::file-selector-button {
+    font-family: var(--font-body); font-weight: 600; font-size: 0.8rem;
+    padding: 0.4rem 0.8rem; border-radius: 5px; border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--text-muted); cursor: pointer; margin-right: 0.5rem;
+  }
+
+  .controls { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; align-items: center; }
+
+  button {
+    font-family: var(--font-body); font-weight: 600; font-size: 0.85rem;
+    padding: 0.6rem 1.25rem; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--accent); color: var(--bg); }
+  .btn-primary:hover { filter: brightness(1.15); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
+  .btn-secondary:hover { color: var(--text); border-color: var(--text-muted); }
+  .btn-download { background: rgba(52,211,153,0.12); color: var(--green); border: 1px solid rgba(52,211,153,0.3); }
+  .btn-download:hover { filter: brightness(1.15); }
+
+  .status { margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted); min-height: 1.4em; }
+  .status.error { color: var(--red); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .stream-output {
+    margin-top: 1rem; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem; font-family: var(--font-mono); font-size: 0.75rem;
+    color: var(--text-muted); max-height: 200px; overflow-y: auto; display: none;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .stream-output.visible { display: block; }
+
+  .results { margin-top: 2rem; display: none; }
+  .results.visible { display: block; }
+  .results h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--accent); }
+
+  .summary-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;
+  }
+  .meta-row { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; font-size: 0.8rem; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.85rem 1rem; margin-bottom: 0.6rem; font-size: 0.85rem;
+  }
+  .card-action { border-left: 3px solid var(--accent); }
+  .card-action.high { border-left-color: var(--red); }
+  .card-action.medium { border-left-color: var(--amber); }
+  .card-action.low { border-left-color: var(--green); }
+  .card-decision { border-left: 3px solid var(--purple); }
+  .card-risk { border-left: 3px solid var(--amber); }
+  .card-risk.critical, .card-risk.high { border-left-color: var(--red); }
+
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
+  .card-owner { font-weight: 600; color: var(--accent); }
+  .card-body { color: var(--text); }
+  .card-footer { margin-top: 0.35rem; font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 1rem; flex-wrap: wrap; }
+  .card-context { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem; }
+  .card-decided-by { font-size: 0.75rem; color: var(--purple); margin-top: 0.2rem; }
+  .card-mitigation { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem; }
+
+  .tag {
+    font-family: var(--font-mono); font-size: 0.7rem; padding: 0.1rem 0.4rem;
+    border-radius: 3px; text-transform: uppercase; display: inline-block;
+  }
+  .tag.high { background: rgba(248,113,113,0.15); color: var(--red); }
+  .tag.medium { background: rgba(251,191,36,0.15); color: var(--amber); }
+  .tag.low { background: rgba(52,211,153,0.15); color: var(--green); }
+  .tag.critical { background: rgba(248,113,113,0.25); color: var(--red); font-weight: 600; }
+
+  .confidence { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); margin-left: 0.5rem; }
+
+  .speaker-table {
+    width: 100%; border-collapse: collapse; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    margin-bottom: 1.5rem; font-size: 0.82rem;
+  }
+  .speaker-table th {
+    background: var(--surface-2); padding: 0.6rem 0.8rem; text-align: left;
+    font-weight: 600; color: var(--text-muted); font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .speaker-table td { padding: 0.5rem 0.8rem; border-top: 1px solid var(--border); }
+
+  .raw-json { margin-top: 1.5rem; }
+  .raw-json summary { cursor: pointer; color: var(--text-muted); font-size: 0.8rem; font-family: var(--font-mono); }
+  .raw-json pre {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    padding: 1rem; margin-top: 0.5rem; font-family: var(--font-mono); font-size: 0.75rem;
+    overflow-x: auto; max-height: 400px; color: var(--text-muted);
+  }
+
+  footer {
+    margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border);
+    font-size: 0.75rem; color: var(--text-muted); text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Workch<span>AI</span>n Transcript Agent <span class="badge">Managed Agents Beta</span></h1>
+    <p>Meeting transcript analysis powered by Claude Managed Agents (April 2026)</p>
+  </header>
+
+  <div class="input-section">
+    <label>Paste a meeting transcript or upload a file (.txt, .vtt, .srt):</label>
+    <textarea id="transcript" placeholder="Paste meeting transcript here..."></textarea>
+    <div class="file-upload">
+      <input type="file" id="fileInput" accept=".txt,.vtt,.srt">
+      <span id="fileName"></span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-primary" id="processBtn" onclick="processTranscript()">Process Transcript</button>
+    <button class="btn-secondary" onclick="loadSample()">Load Sample</button>
+    <button class="btn-secondary" onclick="clearAll()">Clear</button>
+    <button class="btn-download" id="downloadBtn" onclick="downloadJson()" style="display:none">Download JSON</button>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div class="stream-output" id="streamOutput"></div>
+
+  <div class="results" id="results">
+    <div class="meta-row" id="metaRow"></div>
+    <h2>Summary</h2>
+    <div class="summary-box" id="summary"></div>
+    <h2>Actions (<span id="actionCount">0</span>)</h2>
+    <div id="actions"></div>
+    <h2>Decisions (<span id="decisionCount">0</span>)</h2>
+    <div id="decisions"></div>
+    <h2>Risks (<span id="riskCount">0</span>)</h2>
+    <div id="risks"></div>
+    <div id="speakerSection" style="display:none">
+      <h2>Speaker Participation</h2>
+      <table class="speaker-table" id="speakers"></table>
+    </div>
+    <details class="raw-json">
+      <summary>View raw JSON output</summary>
+      <pre id="rawJson"></pre>
+    </details>
+  </div>
+
+  <footer>
+    WorkchAIn Transcript Agent &mdash; built by Paddy Gilliland using Claude Managed Agents on launch day.
+    <br>Agent: <span id="agentId" style="font-family:var(--font-mono)">-</span> |
+    Session: <span id="sessionId" style="font-family:var(--font-mono)">-</span> |
+    Duration: <span id="duration" style="font-family:var(--font-mono)">-</span>
+  </footer>
+</div>
+
+<script>
+/**
+ * Safe DOM builder — all dynamic text goes through textContent (never innerHTML).
+ * Structure is built with createElement, so no XSS risk from agent output.
+ */
+
+let lastResult = null;
+
+function el(tag, attrs, children) {
+  const node = document.createElement(tag);
+  if (attrs) {
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'className') node.className = v;
+      else if (k === 'textContent') node.textContent = v;
+      else if (k === 'style' && typeof v === 'object') Object.assign(node.style, v);
+      else node.setAttribute(k, v);
+    }
+  }
+  if (children) {
+    for (const child of Array.isArray(children) ? children : [children]) {
+      if (typeof child === 'string') node.appendChild(document.createTextNode(child));
+      else if (child) node.appendChild(child);
+    }
+  }
+  return node;
+}
+
+function clearNode(id) { const n = document.getElementById(id); while (n.firstChild) n.removeChild(n.firstChild); return n; }
+
+// File input handler
+document.getElementById('fileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('transcript').value = await file.text();
+});
+
+async function loadSample() {
+  try {
+    const res = await fetch('/api/sample');
+    const data = await res.json();
+    document.getElementById('transcript').value = data.transcript;
+    document.getElementById('fileName').textContent = '';
+    document.getElementById('fileInput').value = '';
+  } catch (e) {
+    setStatus('Could not reach backend. Is uvicorn running?', true);
+  }
+}
+
+async function processTranscript() {
+  const text = document.getElementById('transcript').value.trim();
+  if (text.length < 50) { setStatus('Transcript is too short (minimum 50 characters).', true); return; }
+
+  const btn = document.getElementById('processBtn');
+  btn.disabled = true;
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('downloadBtn').style.display = 'none';
+
+  const streamEl = document.getElementById('streamOutput');
+  streamEl.textContent = '';
+  streamEl.classList.add('visible');
+  setStatus('Starting managed agent session...', false, true);
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript: text }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'HTTP ' + res.status);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const raw = line.slice(5).trim();
+        if (!raw) continue;
+        try { handleSSEEvent(JSON.parse(raw), streamEl); } catch (e) { /* skip malformed */ }
+      }
+    }
+  } catch (e) {
+    setStatus('Error: ' + e.message, true);
+    streamEl.classList.remove('visible');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function handleSSEEvent(event, streamEl) {
+  switch (event.type) {
+    case 'status':
+      setStatus(event.data, false, true);
+      break;
+    case 'text':
+      streamEl.textContent += event.data;
+      streamEl.scrollTop = streamEl.scrollHeight;
+      break;
+    case 'complete':
+      streamEl.classList.remove('visible');
+      lastResult = event.data;
+      renderResults(event.data);
+      const dur = event.data.meta?.duration_seconds;
+      setStatus('Analysis complete' + (dur ? ' in ' + dur.toFixed(1) + 's' : '') + '.');
+      document.getElementById('downloadBtn').style.display = 'inline-block';
+      break;
+    case 'error':
+      setStatus('Error: ' + event.data, true);
+      streamEl.classList.remove('visible');
+      break;
+  }
+}
+
+function renderResults(data) {
+  document.getElementById('results').classList.add('visible');
+
+  const a = data.analysis || {};
+  const m = a.meeting || {};
+  const meta = data.meta || {};
+
+  // Footer meta
+  document.getElementById('agentId').textContent = meta.agent_id || '-';
+  document.getElementById('sessionId').textContent = meta.session_id || '-';
+  document.getElementById('duration').textContent = meta.duration_seconds ? meta.duration_seconds.toFixed(1) + 's' : '-';
+
+  // Meta row
+  const metaRow = clearNode('metaRow');
+  metaRow.appendChild(el('span', {}, [el('strong', { textContent: 'Meeting: ' }), m.title || '-']));
+  metaRow.appendChild(el('span', {}, [el('strong', { textContent: 'Date: ' }), m.date || '-']));
+  metaRow.appendChild(el('span', {}, [el('strong', { textContent: 'Attendees: ' }), (m.attendees || []).join(', ') || '-']));
+
+  // Summary
+  document.getElementById('summary').textContent = m.summary || 'No summary available.';
+
+  // Actions
+  const actions = a.actions || [];
+  document.getElementById('actionCount').textContent = actions.length;
+  const actionsEl = clearNode('actions');
+  if (actions.length === 0) {
+    actionsEl.appendChild(el('div', { className: 'summary-box', textContent: 'No actions extracted.' }));
+  }
+  for (const act of actions) {
+    const card = el('div', { className: 'card card-action ' + (act.priority || '') });
+    const header = el('div', { className: 'card-header' });
+    const ownerSpan = el('span', {}, [
+      el('span', { className: 'card-owner', textContent: act.owner || 'Unassigned' }),
+      ...(act.confidence ? [el('span', { className: 'confidence', textContent: (act.confidence * 100).toFixed(0) + '%' })] : []),
+    ]);
+    header.appendChild(ownerSpan);
+    header.appendChild(el('span', { className: 'tag ' + (act.priority || ''), textContent: act.priority || '?' }));
+    card.appendChild(header);
+    card.appendChild(el('div', { className: 'card-body', textContent: act.action || '' }));
+    const footer = el('div', { className: 'card-footer' });
+    footer.appendChild(el('span', { textContent: 'Deadline: ' + (act.deadline || 'TBC') }));
+    footer.appendChild(el('span', { textContent: 'Category: ' + (act.category || '-') }));
+    if (act.source_timestamp) footer.appendChild(el('span', { textContent: '@ ' + act.source_timestamp }));
+    card.appendChild(footer);
+    actionsEl.appendChild(card);
+  }
+
+  // Decisions
+  const decisions = a.decisions || [];
+  document.getElementById('decisionCount').textContent = decisions.length;
+  const decisionsEl = clearNode('decisions');
+  if (decisions.length === 0) {
+    decisionsEl.appendChild(el('div', { className: 'summary-box', textContent: 'No decisions recorded.' }));
+  }
+  for (const d of decisions) {
+    const card = el('div', { className: 'card card-decision' });
+    const titleRow = el('div', {}, [
+      document.createTextNode(d.summary || ''),
+      ...(d.confidence ? [el('span', { className: 'confidence', textContent: (d.confidence * 100).toFixed(0) + '%' })] : []),
+    ]);
+    card.appendChild(titleRow);
+    if (d.context) card.appendChild(el('div', { className: 'card-context', textContent: d.context }));
+    if (d.decided_by?.length) card.appendChild(el('div', { className: 'card-decided-by', textContent: 'By: ' + d.decided_by.join(', ') }));
+    decisionsEl.appendChild(card);
+  }
+
+  // Risks
+  const risks = a.risks || [];
+  document.getElementById('riskCount').textContent = risks.length;
+  const risksEl = clearNode('risks');
+  if (risks.length === 0) {
+    risksEl.appendChild(el('div', { className: 'summary-box', textContent: 'No risks identified.' }));
+  }
+  for (const r of risks) {
+    const card = el('div', { className: 'card card-risk ' + (r.severity || '') });
+    const titleRow = el('div', {}, [
+      el('span', { className: 'tag ' + (r.severity || 'medium'), textContent: r.severity || 'medium' }),
+      document.createTextNode(' ' + (r.description || '')),
+    ]);
+    card.appendChild(titleRow);
+    if (r.mitigation) card.appendChild(el('div', { className: 'card-mitigation', textContent: 'Mitigation: ' + r.mitigation }));
+    if (r.owner) card.appendChild(el('div', { className: 'card-mitigation', textContent: 'Owner: ' + r.owner }));
+    risksEl.appendChild(card);
+  }
+
+  // Speaker stats
+  const speakers = a.speakers || [];
+  const speakerSection = document.getElementById('speakerSection');
+  if (speakers.length > 0) {
+    speakerSection.style.display = 'block';
+    const maxWords = Math.max(...speakers.map(s => s.word_count || 0), 1);
+    const table = clearNode('speakers');
+    const thead = el('thead');
+    const hrow = el('tr');
+    for (const h of ['Speaker', 'Words', 'Speaking %', 'Turns']) hrow.appendChild(el('th', { textContent: h }));
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+    const tbody = el('tbody');
+    for (const s of speakers) {
+      const row = el('tr');
+      row.appendChild(el('td', { textContent: s.name }));
+      const wordTd = el('td');
+      wordTd.appendChild(document.createTextNode(String(s.word_count || 0) + ' '));
+      const bar = el('span', { className: 'bar' });
+      bar.style.display = 'inline-block';
+      bar.style.height = '6px';
+      bar.style.background = 'var(--accent)';
+      bar.style.borderRadius = '3px';
+      bar.style.verticalAlign = 'middle';
+      bar.style.opacity = '0.7';
+      bar.style.width = ((s.word_count || 0) / maxWords * 80) + 'px';
+      wordTd.appendChild(bar);
+      row.appendChild(wordTd);
+      row.appendChild(el('td', { textContent: (s.speaking_time_pct || 0).toFixed(1) + '%' }));
+      row.appendChild(el('td', { textContent: String(s.turn_count || 0) }));
+      tbody.appendChild(row);
+    }
+    table.appendChild(tbody);
+  } else {
+    speakerSection.style.display = 'none';
+  }
+
+  // Raw JSON (textContent is safe)
+  document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2);
+
+  // Scroll to results
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function downloadJson() {
+  if (!lastResult) return;
+  const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'transcript-analysis-' + new Date().toISOString().slice(0, 19).replace(/:/g, '') + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function setStatus(msg, isError, showSpinner) {
+  const el = document.getElementById('status');
+  el.className = 'status' + (isError ? ' error' : '');
+  // Build status safely with DOM
+  while (el.firstChild) el.removeChild(el.firstChild);
+  if (showSpinner && !isError) {
+    const spinner = document.createElement('span');
+    spinner.style.cssText = 'display:inline-block;width:14px;height:14px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:0.4rem;';
+    el.appendChild(spinner);
+  }
+  el.appendChild(document.createTextNode(msg));
+}
+
+function clearAll() {
+  document.getElementById('transcript').value = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileName').textContent = '';
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('streamOutput').classList.remove('visible');
+  document.getElementById('streamOutput').textContent = '';
+  setStatus('');
+  document.getElementById('downloadBtn').style.display = 'none';
+  lastResult = null;
+}
+</script>
+</body>
+</html>

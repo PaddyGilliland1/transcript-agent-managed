@@ -1,0 +1,45 @@
+MEETING TRANSCRIPT: Meridian Manufacturing — D365 Go-Live Readiness Review
+Date: 2026-04-07
+Attendees: Alex Carter (HSO, Solution Architect), Rachel Torres (HSO, Engagement Lead), Marcus Webb (Meridian, Head of Operations), Lisa Ng (Meridian, Finance Director)
+
+[00:01:20] Marcus Webb: Right, let's get into it. We're three weeks from go-live and I want to understand where we stand on the data migration. Are we on track?
+
+[00:02:05] Alex Carter: The short answer is yes, with conditions. Migration batch one — vendor master, chart of accounts, and warehouse structures — completed validation last Friday. Batch two, which covers open purchase orders and sales orders, is 80% through but we've hit a snag with the unit-of-measure mappings. About 340 SKUs have mismatched UOM codes between the legacy system and D365.
+
+[00:03:30] Lisa Ng: That's a concern. If the UOM mappings are wrong on open POs, we'll get receiving errors from day one. Can we get a full list of the affected SKUs?
+
+[00:04:00] Alex Carter: Absolutely. I'll extract the mismatch report from the staging database and send it across by end of day. Your team will need to confirm the correct D365 UOM for each one — it's a manual review, probably two days of effort.
+
+[00:05:15] Marcus Webb: Lisa, can your team pick that up starting tomorrow?
+
+[00:05:30] Lisa Ng: I'll assign two people to it. We should have it back to HSO by Thursday.
+
+[00:06:00] Rachel Torres: Good. On the commercial side, we need to flag that any delay past Thursday on the UOM corrections pushes us into the weekend for the final migration rehearsal. That has cost implications — weekend rates apply.
+
+[00:06:45] Marcus Webb: Understood. Let's make Thursday the hard deadline. What about the integration testing?
+
+[00:07:20] Alex Carter: The warehouse management integration with the WMS is passing all automated tests. The EDI integration with your three main suppliers is a different story. Two of the three are working. Consolidated Packaging haven't returned their test file yet. I've chased them twice. I'd recommend Meridian escalate directly since they're your supplier relationship.
+
+[00:08:30] Marcus Webb: I'll call them today. Who's my contact on the technical side if they have questions?
+
+[00:08:50] Alex Carter: They can reach out to me directly. I'll send you my details to forward on.
+
+[00:09:15] Rachel Torres: We also need to schedule the cutover rehearsal. I'm proposing the weekend of the 19th — that gives us a full dry run two weeks before go-live. We'll need a war room with the core team on both sides.
+
+[00:10:00] Marcus Webb: Works for me. Lisa?
+
+[00:10:10] Lisa Ng: Yes, I can make that work. Can HSO send us a cutover runbook draft by next Monday so we can review it before the rehearsal?
+
+[00:10:40] Alex Carter: I'll have the technical runbook sections drafted by Friday. Rachel, can you add the governance and rollback procedures?
+
+[00:11:00] Rachel Torres: Already in progress. We'll have the full document to Meridian by Monday lunchtime.
+
+[00:11:30] Marcus Webb: Last item — user training. We've had 60% attendance at the training sessions so far. I'm not comfortable going live with that number.
+
+[00:12:00] Alex Carter: Agreed. Low training uptake is one of the biggest risk factors for post-go-live support volume. I'd suggest a mandatory catch-up session the week before go-live, plus short video walkthroughs for the five most common processes. I can produce those.
+
+[00:12:45] Lisa Ng: That would be really helpful. Can we also get a one-page cheat sheet for the finance team? The AP process is quite different from what they're used to.
+
+[00:13:10] Alex Carter: No problem. I'll draft the AP cheat sheet and the training videos. Aim to have those ready by the 18th.
+
+[00:13:40] Rachel Torres: Good meeting. To summarise: UOM corrections by Thursday, cutover runbook by Monday, EDI escalation today, and training materials by the 18th. Let's reconvene Friday to check progress. Meeting closed.
