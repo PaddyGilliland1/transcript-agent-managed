@@ -167,68 +167,98 @@ class AgentManager:
     async def stream_analysis(self, transcript: str) -> AsyncGenerator[dict[str, Any], None]:
         agent_id = await self.ensure_agent()
         start = time.time()
+        loop = asyncio.get_event_loop()
 
         yield {"type": "status", "data": "Creating session..."}
 
-        session = self.client.beta.sessions.create(
-            agent=agent_id,
-            environment_id=self._environment_id,
+        session = await loop.run_in_executor(
+            None,
+            lambda: self.client.beta.sessions.create(
+                agent=agent_id,
+                environment_id=self._environment_id,
+            ),
         )
         session_id = session.id
         yield {"type": "status", "data": f"Session {session_id[:20]}... active"}
 
         # Send user message
-        self.client.beta.sessions.events.send(
-            session_id=session_id,
-            events=[{
-                "type": "user.message",
-                "content": [{"type": "text", "text": USER_MESSAGE + transcript}],
-            }],
+        await loop.run_in_executor(
+            None,
+            lambda: self.client.beta.sessions.events.send(
+                session_id=session_id,
+                events=[{
+                    "type": "user.message",
+                    "content": [{"type": "text", "text": USER_MESSAGE + transcript}],
+                }],
+            ),
         )
-        yield {"type": "status", "data": "Agent processing..."}
+        yield {"type": "status", "data": "Transcript sent, waiting for agent..."}
 
-        # Stream response events
+        # Stream response events via a queue so yields flush to the browser
+        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+        def _consume_stream():
+            """Run in a thread — reads the blocking SSE stream and pushes to queue."""
+            full = ""
+            try:
+                with self.client.beta.sessions.events.stream(session_id=session_id) as stream:
+                    for event in stream:
+                        etype = getattr(event, "type", "")
+                        if etype == "session.status_running":
+                            queue.put_nowait({"type": "status", "data": "Container running..."})
+                        elif etype == "span.model_request_start":
+                            queue.put_nowait({"type": "status", "data": "Model processing transcript..."})
+                        elif etype == "agent.thinking":
+                            queue.put_nowait({"type": "status", "data": "Agent thinking..."})
+                        elif etype == "span.model_request_end":
+                            queue.put_nowait({"type": "status", "data": "Formatting response..."})
+                        elif etype == "agent.message":
+                            if hasattr(event, "content"):
+                                for block in event.content:
+                                    if hasattr(block, "text"):
+                                        full += block.text
+                                        queue.put_nowait({"type": "text", "data": block.text})
+                        elif etype == "content_block_delta":
+                            if hasattr(event, "delta") and hasattr(event.delta, "text"):
+                                full += event.delta.text
+                                queue.put_nowait({"type": "text", "data": event.delta.text})
+                        elif etype == "session.status_idle":
+                            break
+            except anthropic.APIError as exc:
+                queue.put_nowait({"type": "error", "data": f"API error: {exc.message}"})
+            queue.put_nowait({"type": "_raw_text", "data": full})
+            queue.put_nowait(None)  # sentinel
+
+        # Start the blocking stream in a thread
+        loop.run_in_executor(None, _consume_stream)
+
+        # Yield events as they arrive
         full_response = ""
-        try:
-            with self.client.beta.sessions.events.stream(session_id=session_id) as stream:
-                for event in stream:
-                    etype = getattr(event, "type", "")
-
-                    if etype == "session.status_running":
-                        yield {"type": "status", "data": "Container running..."}
-                    elif etype == "span.model_request_start":
-                        yield {"type": "status", "data": "Model processing transcript..."}
-                    elif etype == "agent.thinking":
-                        yield {"type": "status", "data": "Agent thinking..."}
-                    elif etype == "span.model_request_end":
-                        yield {"type": "status", "data": "Formatting response..."}
-                    elif etype == "agent.message":
-                        if hasattr(event, "content"):
-                            for block in event.content:
-                                if hasattr(block, "text"):
-                                    full_response += block.text
-                                    yield {"type": "text", "data": block.text}
-                    elif etype == "content_block_delta":
-                        if hasattr(event, "delta") and hasattr(event.delta, "text"):
-                            full_response += event.delta.text
-                            yield {"type": "text", "data": event.delta.text}
-                    elif etype == "session.status_idle":
-                        break
-
-        except anthropic.APIError as exc:
-            yield {"type": "error", "data": f"API error: {exc.message}"}
-            return
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            if item["type"] == "_raw_text":
+                full_response = item["data"]
+                continue
+            yield item
+            if item["type"] == "error":
+                return
 
         # Fallback
         if not full_response:
-            full_response = self._fallback_response(session_id)
+            full_response = await loop.run_in_executor(
+                None, lambda: self._fallback_response(session_id)
+            )
             if full_response:
                 yield {"type": "text", "data": full_response}
 
         # Parse and return complete result
         analysis = self._parse_response(full_response)
         duration = time.time() - start
-        usage = self._get_usage(session_id, duration)
+        usage = await loop.run_in_executor(
+            None, lambda: self._get_usage(session_id, duration)
+        )
         meta = AnalysisMeta(
             agent_id=agent_id,
             session_id=session_id,
