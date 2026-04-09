@@ -183,9 +183,7 @@
 
   <div class="controls">
     <button class="btn-primary" id="processBtn" onclick="processTranscript()">Process Transcript</button>
-    <select id="sampleSelect" style="font-family:var(--font-mono);font-size:0.8rem;background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border);border-radius:5px;padding:0.4rem 0.6rem;">
-      <option value="">Load sample...</option>
-    </select>
+    <button class="btn-secondary" onclick="loadSample()">Load Sample</button>
     <button class="btn-secondary" onclick="clearAll()">Clear</button>
     <button class="btn-download" id="downloadBtn" onclick="downloadJson()" style="display:none">Download JSON</button>
   </div>
@@ -260,34 +258,17 @@ document.getElementById('fileInput').addEventListener('change', async (e) => {
   document.getElementById('transcript').value = await file.text();
 });
 
-// Populate sample dropdown on load
-(async function loadSampleList() {
+async function loadSample() {
   try {
-    const res = await fetch('/api/samples');
-    const data = await res.json();
-    const sel = document.getElementById('sampleSelect');
-    for (const s of data.samples || []) {
-      const opt = document.createElement('option');
-      opt.value = s.file;
-      opt.textContent = s.name;
-      sel.appendChild(opt);
-    }
-  } catch (e) { /* backend not running yet */ }
-})();
-
-document.getElementById('sampleSelect').addEventListener('change', async (e) => {
-  const file = e.target.value;
-  if (!file) return;
-  try {
-    const res = await fetch('/api/sample?file=' + encodeURIComponent(file));
+    const res = await fetch('/api/sample');
     const data = await res.json();
     document.getElementById('transcript').value = data.transcript;
     document.getElementById('fileName').textContent = '';
     document.getElementById('fileInput').value = '';
-  } catch (err) {
+  } catch (e) {
     setStatus('Could not reach backend. Is uvicorn running?', true);
   }
-});
+}
 
 async function processTranscript() {
   const text = document.getElementById('transcript').value.trim();
