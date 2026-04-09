@@ -102,11 +102,19 @@ async def health():
     }
 
 
+@app.get("/api/samples")
+async def list_samples():
+    """List available sample transcripts."""
+    sample_dir = PROJECT_ROOT / "sample_data"
+    files = sorted(sample_dir.glob("*.txt")) if sample_dir.exists() else []
+    return {"samples": [{"name": f.stem.replace("-", " ").title(), "file": f.name} for f in files]}
+
+
 @app.get("/api/sample")
-async def get_sample():
-    """Return the bundled sample transcript."""
-    sample = PROJECT_ROOT / "sample_data" / "meridian-golive-review.txt"
-    if sample.exists():
+async def get_sample(file: str = "meridian-golive-review.txt"):
+    """Return a sample transcript by filename."""
+    sample = PROJECT_ROOT / "sample_data" / Path(file).name  # sanitise
+    if sample.exists() and sample.suffix == ".txt":
         return {"transcript": sample.read_text()}
     return {"transcript": ""}
 

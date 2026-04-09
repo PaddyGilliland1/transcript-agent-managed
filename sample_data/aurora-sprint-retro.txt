@@ -1,0 +1,79 @@
+MEETING TRANSCRIPT: Aurora Health — Sprint 14 Retrospective & Planning
+Date: 2026-04-04
+Attendees: Dev Kapoor (Aurora, VP of Engineering), Sarah Chen (Aurora, Product Manager), James Okafor (Contractor, Tech Lead), Priya Nair (Aurora, QA Lead), Tom Whitfield (Aurora, DevOps Engineer)
+
+[00:00:45] Dev Kapoor: Let's get started. Sprint 14 closes today so I want to do the retro and sprint 15 planning in one session. Sarah, can you walk us through what shipped?
+
+[00:01:20] Sarah Chen: Sure. We shipped the patient portal redesign — that's the React migration from the legacy jQuery frontend. It's live in staging, passed UAT with the clinical team on Wednesday. The appointment booking flow is fully functional, including the new insurance verification step. We also closed the medication reminder notification bug that was affecting about 1,200 patients on Android.
+
+[00:02:30] Priya Nair: Just to flag — the medication bug fix went out without a full regression on the notification subsystem. We covered the critical paths but I had to skip the edge cases around timezone handling for patients who travel. I'd like to add that to the technical debt backlog.
+
+[00:03:10] Dev Kapoor: Fair point. James, how concerned should we be about that?
+
+[00:03:25] James Okafor: Honestly, it's a real risk. We've had three support tickets in the last month from patients who crossed timezones and their reminders either doubled up or stopped entirely. The fix we shipped addresses the root cause for stationary patients, but the travelling case needs a different approach — we'd need to hook into the device's location API and recalculate the schedule. I'd estimate two days of work plus a day of testing.
+
+[00:04:30] Sarah Chen: Can we fit that into sprint 15? The product board has it marked as P2 but I think the support volume justifies bumping it.
+
+[00:04:50] Dev Kapoor: Agreed. James, add it to sprint 15, mark it as P1. Priya, make sure we have a test plan that covers at least five timezone transition scenarios.
+
+[00:05:20] Priya Nair: Will do. I'll draft the test matrix by Monday and share it with James for review.
+
+[00:05:40] Tom Whitfield: On the infrastructure side, I need to raise something. The staging environment has been flaky this sprint. We had three outages — two were the Kubernetes pod evictions I mentioned last week, and one was a database connection pool exhaustion. I've patched the connection pool issue but the pod evictions are a capacity problem. We need to either increase the node pool from three to five nodes, or optimise the memory footprint of the patient portal service.
+
+[00:06:45] Dev Kapoor: What's the cost delta on five nodes?
+
+[00:07:00] Tom Whitfield: About $340 a month on our current Azure reserved instances. Alternatively, I can try to reduce the memory footprint by switching from the full Node.js runtime to an Alpine-based image and trimming dependencies. That's probably a day of work but saves us the recurring cost.
+
+[00:07:35] Dev Kapoor: Try the optimisation first. If that doesn't bring us under the eviction threshold, we'll approve the node increase. I don't want staging instability blocking QA again.
+
+[00:08:00] Sarah Chen: Agreed. That blocked us for a full day during UAT. Speaking of which — the big item for sprint 15 is the FHIR API integration. We've got the contract with MedConnect finalised, they've sent us their sandbox credentials, and we need to build the patient data sync. This is the critical path for the Series B demo on May 1st.
+
+[00:08:50] James Okafor: I've been reviewing their API documentation. It's a standard FHIR R4 implementation but they have some custom extensions for insurance eligibility that aren't well documented. I've emailed their technical team twice and haven't heard back. We might need to escalate through the commercial relationship.
+
+[00:09:30] Sarah Chen: I'll handle that. I have a call with their head of partnerships on Monday — I'll push for a technical handshake session within the week. James, can you prepare a list of the specific questions and the custom extension fields you need clarified?
+
+[00:09:55] James Okafor: Already half-drafted. I'll have it to you by end of day today.
+
+[00:10:15] Dev Kapoor: Good. What's the breakdown for the FHIR work?
+
+[00:10:30] James Okafor: I see it as four pieces. First, the authentication layer — they use SMART on FHIR with OAuth 2.0, which is standard but fiddly. Second, the patient demographic sync — pulling name, DOB, insurance, and contact details. Third, the clinical data pull — conditions, medications, and allergies. Fourth, the real-time webhook for appointment status updates. I'd estimate two weeks for the full integration, with the auth and demographics done in sprint 15 and the clinical data and webhooks in sprint 16.
+
+[00:11:40] Priya Nair: I'll need access to their sandbox to build test fixtures. Can that be part of the Monday escalation, Sarah?
+
+[00:11:55] Sarah Chen: Absolutely. I'll make sure sandbox access for QA is on the ask list.
+
+[00:12:10] Dev Kapoor: What about the security review? We're handling PHI here — this needs to go through our compliance team before we go live with any patient data sync.
+
+[00:12:35] James Okafor: We should start that process now. The compliance review took six weeks for the last integration. If we wait until the code is done, we'll miss the demo window.
+
+[00:12:55] Dev Kapoor: Sarah, can you loop in Dr. Martinez from the compliance team? Get the review kicked off this week. James, document the data flow — what fields we're pulling, where they're stored, encryption at rest and in transit, retention policies. That's what compliance will need.
+
+[00:13:30] Sarah Chen: I'll send the request today. James, can you have the data flow document ready by Wednesday?
+
+[00:13:45] James Okafor: Wednesday is tight with the FHIR questions doc and the timezone fix. Thursday is more realistic.
+
+[00:14:00] Dev Kapoor: Thursday works. Better to have it thorough than rushed.
+
+[00:14:15] Tom Whitfield: One more thing — for the FHIR integration we'll need a dedicated secrets vault for the MedConnect credentials. I'll set up an Azure Key Vault instance and configure the service principal access. I can have that ready by Tuesday.
+
+[00:14:45] Sarah Chen: Perfect. Last item — we need to discuss the load testing before the demo. The Series B investors specifically asked about our scalability story. We're claiming we can handle 10,000 concurrent patients and I want proof.
+
+[00:15:20] Tom Whitfield: I can set up a k6 load test against staging once the FHIR integration is in place. We should test the full flow — login, appointment booking, patient data sync. I'll need about three days to script and run it, plus time to analyse and fix any bottlenecks.
+
+[00:15:55] Dev Kapoor: Schedule that for the last week of April. That gives us a week buffer before the May 1st demo. If we find issues, we need time to address them.
+
+[00:16:20] Priya Nair: Can I add one more risk? We still don't have automated end-to-end tests for the appointment booking flow. Everything we've done so far is manual UAT. If something breaks between now and the demo, we might not catch it until a human clicks through it.
+
+[00:16:50] Dev Kapoor: That's a valid concern. Can you scope the effort for automating the critical happy path?
+
+[00:17:05] Priya Nair: Playwright automation for the booking flow — maybe three days. It won't cover every edge case but it'll catch regressions on the main flow.
+
+[00:17:25] Dev Kapoor: Add it to sprint 15. Prioritise it after the timezone fix. Alright, let me summarise the sprint 15 commitments. James, the timezone fix and FHIR auth plus demographics. Tom, the memory optimisation, Key Vault setup, and load test prep. Priya, timezone test matrix and booking flow automation. Sarah, MedConnect escalation and compliance kickoff. Any objections?
+
+[00:18:10] Sarah Chen: Sounds right. I'll update the board after this call.
+
+[00:18:20] James Okafor: One more thought — we should set up a shared Slack channel with MedConnect's technical team. Email is too slow for integration work. Can you propose that on Monday's call, Sarah?
+
+[00:18:45] Sarah Chen: Good idea. I'll add it to my agenda.
+
+[00:19:00] Dev Kapoor: Great. Reconvene next Friday for the sprint 15 standup check-in. Meeting closed.
